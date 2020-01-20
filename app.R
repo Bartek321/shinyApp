@@ -18,9 +18,11 @@ library(geojsonio)
 
 library(rsconnect)
 
+library(shinyjs)
+
 
 data<-read_csv("rollLyrics.csv")
-
+#data<-data[1:100,]
 
 names<-data[,"Band"]
 names<-names[!duplicated(names[,c('Band')]),]
@@ -43,13 +45,14 @@ data3 <- merge(data3, gen, by="Band")
 
 data4 <-aggregate(cbind(uWords, nWords) ~ genres, FUN = mean, data = data3, 
                   na.rm = TRUE, na.action = NULL)
-
+maxi = 250
 
 server <- function(input, output) {
     
     #dodanie danych do mapki
     countries <- geojsonio::geojson_read("map.geojson", what = "sp")
     xartist3 <-read_csv("cc.csv")
+    
     for(i in 1:length(countries)){
         countries$adm0_dif <- 0
     }
@@ -90,19 +93,33 @@ server <- function(input, output) {
             direction = "auto"))
     #wordcloud
     output$distPlot <- renderWordcloud2({
-        text <- data[data[, "Band"] == input$input1, "Lyrics"]
+        shinyjs::show("Band")
+        shinyjs::hide("Genre")
+        shinyjs::show("Words")
+        text <- data[data[, "Band"] == input$Band, "Lyrics"]
         text <- sapply(text,function(row) iconv(row, "latin1", "ASCII", sub=""))
         
         docs <- Corpus(VectorSource(text))
-        
+        siz = 0
         dtm <- TermDocumentMatrix(docs) 
         matrix <- as.matrix(dtm) 
         words <- sort(rowSums(matrix),decreasing=TRUE) 
         df <- data.frame(word = names(words),freq=words)
         df <- df[order(df$freq, decreasing = TRUE), ]
-        df <- df[input$slider[1]:input$slider[2], ]
+        df <- df[input$Words[1]:input$Words[2], ]
         set.seed(1234) # for reproducibility 
-        wordcloud2(data=df, size=0.6, color='random-dark', widgetsize=1, minSize = 10)
+        if(input$Words[1] < 10)
+            siz = 1.0
+        if(input$Words[1] < 2)
+            siz = 1.6
+        if(input$Words[1] > 9 && input$Words[2] - input$Words[1] > 0)
+            siz = 0.6
+        if(input$Words[1] > 6 && input$Words[2] - input$Words[1] > 50)
+            siz = 0.6
+        if(input$Words[1] > 6 && input$Words[2] - input$Words[1] > 100)
+            siz = 0.3
+        
+        wordcloud2(data=df, size=siz, color='random-dark', widgetsize=1, minSize = 10)
         
     })
     ##################
@@ -111,10 +128,75 @@ server <- function(input, output) {
     ranges <- reactiveValues(x = NULL, y = NULL)
     #mapka
     output$mymap <- renderLeaflet({
+        
+        shinyjs::hide("Band")
+        shinyjs::hide("Genre")
+        shinyjs::hide("Words")
         map
+    })
+    
+    output$mymap2 <- renderLeaflet({
+        shinyjs::show("Band")
+        shinyjs::hide("Genre")
+        shinyjs::hide("Words")
+        c <- xartist3$c
+        text1 <- data[data[, "Band"] == input$Band, "Lyrics"]
+        
+        for(i in 1:length(c)) {
+            xPattern = paste(c[i], collapse="|")
+            xPattern
+            xDT_result2 <- data.table(text1, result=grepl(xPattern, text1$Lyrics))
+            xDT_result2
+            
+            xartist3[i, "n"] <- nrow(xDT_result2[xDT_result2[, result] == TRUE, -"result"])
+            xartist3
+        }
+        
+        for(i in 1:length(countries)){
+            countries$adm0_dif <- 0
+        }
+        for(i in 1:length(xartist3$c)) {
+            countries$adm0_dif[countries$admin == xartist3$c[[i]] ] <- as.double(xartist3$n[[i]])
+        }
+        
+        map1 <- leaflet(countries)
+        
+        bins <- c(0, 1, 2, 3, 4, 5, Inf)
+        pal <- colorBin(
+            palette = "Blues",
+            domain = countries$adm0_dif, bins = bins)
+        
+        
+        labels <- sprintf(
+            "<strong>%s</strong><br/>%g people / mi<sup>2</sup>",
+            countries$admin, countries$adm0_dif
+        ) %>% lapply(htmltools::HTML)
+        
+        map1 <- map1 %>% addPolygons(
+            fillColor = ~pal(adm0_dif),
+            weight = 2,
+            opacity = 1,
+            color = "white",
+            dashArray = "3",
+            fillOpacity = 0.7,
+            highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE),
+            label = labels,
+            labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto"))
+        map1
     })
     #wykres z przyblizaniem
     output$plot2 <- renderPlot({
+        shinyjs::hide("Band")
+        shinyjs::hide("Genre")
+        shinyjs::hide("Words")
         ggplot(data4, aes(nWords, uWords)) +
             geom_point()   + 
             geom_label_repel(aes(label = genres),
@@ -135,13 +217,16 @@ server <- function(input, output) {
     })
     #wykres z przyblizaniem2
     output$plot2a <- renderPlot({
-        ggplot(data3[data3$genres==input$input2,], aes(nWords, uWords)) +
+        shinyjs::hide("Band")
+        shinyjs::show("Genre")
+        shinyjs::hide("Words")
+        ggplot(data3[data3$genres==input$Genre,], aes(nWords, uWords)) +
             geom_point()  + geom_text(aes(label=Band),hjust=0,vjust=0)+
             theme_classic()
     })
     
     output$plot3a <- renderPlot({
-        ggplot(data3[data3$genres==input$input2,], aes(nWords, uWords)) +
+        ggplot(data3[data3$genres==input$Genre,], aes(nWords, uWords)) +
             geom_point() +
             coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE) + geom_text(aes(label=Band),hjust=0,vjust=0)+
             theme_classic()
@@ -178,35 +263,36 @@ server <- function(input, output) {
 # Define UI for app that draws a histogram ----
 ui <- fluidPage(
     
-    
+    useShinyjs(),
     # App title ----
-    titlePanel("Hello Shiny!"),
+    titlePanel("Songs Lyrics"),
     
     # Sidebar layout with input and output definitions ----
     sidebarLayout(
         
-        # Sidebar panel for inputs ----
+       #  Sidebar panel for inputs ----
         sidebarPanel(
             
             # Input: Slider for the number of bins ----
             
-            selectInput("input1","input1", choices = choices),
-            selectInput("input2","input2", choices = choices2),
+           selectInput("Band","Band", choices = choices),
+           
+           selectInput("Genre","Genre", choices = choices2),
             
-            
-            sliderInput("slider", "slider", min=1, max=100, value=c(40, 60))
+      
+            sliderInput("Words", "Words", min=1, max=maxi, value=c(40, 60))
         ),
         
         # Main panel for displaying outputs ----
         mainPanel(
             
             # Output: Histogram ----
-            tabsetPanel(type = "tabs",
-                        tabPanel("Cloud", wordcloud2Output(outputId = "distPlot")),
-                        tabPanel("Unique1", plotOutput("plot2", height = 300,brush = brushOpts(id = "plot2_brush",resetOnNew = TRUE)), plotOutput("plot3")),
-                        tabPanel("Unique2", plotOutput("plot2a", height = 300,brush = brushOpts(id = "plot2a_brush",resetOnNew = TRUE)), plotOutput("plot3a")),
-                        tabPanel("Summary1", leafletOutput("mymap"))
-                        
+            tabsetPanel(id = "tab", type = "tabs",
+                        tabPanel(id="Cloud", "Word Cloud",tabName="Cloud", wordcloud2Output(outputId = "distPlot")),
+                        tabPanel("Genres Words", plotOutput("plot2", height = 300,brush = brushOpts(id = "plot2_brush",resetOnNew = TRUE)), plotOutput("plot3")),
+                        tabPanel("Bands Words", plotOutput("plot2a", height = 300,brush = brushOpts(id = "plot2a_brush",resetOnNew = TRUE)), plotOutput("plot3a")),
+                        tabPanel("Map", leafletOutput("mymap")),
+                        tabPanel("Band Map", leafletOutput("mymap2"))
                         
                         
             ),
