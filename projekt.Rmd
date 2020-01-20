@@ -1,0 +1,150 @@
+---
+title: "Projekt"
+author: "Bartłomiej Godlewski"
+date: "19 01 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(shiny)
+require(ggplot2)
+require(dplyr)
+require(readr)
+
+library(wordcloud)
+library(RColorBrewer)
+library(wordcloud2)
+library(tm)
+
+library(data.table)
+```
+
+data2
+```{r}
+data2<-read_csv("data/Lyrics2.csv")
+data2
+
+```
+
+```{r}
+data1<-read_csv("data/albumlist.csv")
+data1
+data1<-data1[!duplicated(data1[,c('Artist')]),]
+data1
+artists<-data1$Artist
+artists
+genres<-data1$Genre
+df1 <- data.frame(artists,genres)
+df1$genres <- gsub("([A-Za-z]+).*", "\\1", df1$genres)
+colnames(df1)[1] <- "Band"
+df1
+
+```
+
+```{r}
+artist<-read_csv("data/Lyrics1.csv")
+#artist
+
+x <-artist[artist$Band %in% artists,]
+Names <-paste0('^',Names,'$')
+#x<-x[!duplicated(x[,c('Band')]),]
+x
+
+artist2<-read_csv("data/Lyrics2.csv")
+#artist
+
+x2 <-artist[artist2$Band %in% artists,]
+#x2<-x2[!duplicated(x2[,c('Band')]),]
+x2
+```
+
+```{r}
+artist<-read_csv("data/Lyrics1.csv")
+#artist
+artists <-paste0('^',artists,'$')
+Pattern = paste(artists, collapse="|")
+#Pattern
+DT_result <- data.table(artist, result=grepl(Pattern, artist$Band))
+#DT_result
+
+artist2 <- DT_result[DT_result[, result] == TRUE, -"result"]
+artist2
+
+xartist<-read_csv("data/Lyrics2.csv")
+#xartist
+
+xPattern = paste(artists, collapse="|")
+#xPattern
+xDT_result <- data.table(xartist, result=grepl(xPattern, xartist$Band))
+#xDT_result
+
+xartist2 <- xDT_result[xDT_result[, result] == TRUE, -"result"]
+xartist2
+
+```
+
+```{r}
+xPattern = paste("]", collapse="|")
+xPattern
+xDT_result2 <- data.table(artist2, result=grepl(xPattern, artist2$Song))
+xDT_result2
+
+xartist3 <- xDT_result2[xDT_result2[, result] == FALSE, -"result"]
+xartist3
+
+
+xxPattern = paste("]", collapse="|")
+xxPattern
+xxDT_result2 <- data.table(xartist2, result=grepl(xxPattern, xartist2$Song))
+xxDT_result2
+
+xxartist3 <- xxDT_result2[xxDT_result2[, result] == FALSE, - "result"]
+xxartist3
+
+
+```
+
+```{r}
+
+total <- rbind(xartist3, xxartist3)
+#total<-total[!duplicated(total[,c('Band')]),]
+total <- merge(total, df1, by="Band")
+total
+```
+
+```{r}
+write.csv(total, file = "data/rollLyrics.csv", row.names = FALSE)
+
+```
+
+
+
+
+```{r}
+xxx <-artist2[1:10,]
+#zzz <- gsub("\r\n"," ",xxx$Lyrics)
+yyy <-xartist2
+xxx
+zzz
+```
+
+
+
+
+
+```{r}
+artist<-read_csv("data/artists.csv")
+artist
+
+Pattern = paste(artists, collapse="|")
+Pattern
+DT_result <- data.table(artist$Artist, result=grepl(Pattern, artist$Artist))
+DT_result
+
+artist2 <- DT_result[DT_result[, result] == TRUE]
+artist2
+
+```
+
+

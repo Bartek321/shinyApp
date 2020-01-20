@@ -1,0 +1,12 @@
+name: Test2
+title: Test2
+username:
+account: bartek321
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1677619
+bundleId: 2741021
+url: https://bartek321.shinyapps.io/Test2/
+when: 1579521289.00192
+asMultiple: FALSE
+asStatic: FALSE
