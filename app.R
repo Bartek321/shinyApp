@@ -93,9 +93,13 @@ server <- function(input, output) {
             direction = "auto"))
     #wordcloud
     output$distPlot <- renderWordcloud2({
+        shinyjs::show("Invert")
         shinyjs::show("Band")
         shinyjs::hide("Genre")
         shinyjs::show("Words")
+        b = TRUE
+        if(input$Invert == TRUE)
+            b = FALSE
         text <- data[data[, "Band"] == input$Band, "Lyrics"]
         text <- sapply(text,function(row) iconv(row, "latin1", "ASCII", sub=""))
         
@@ -105,19 +109,32 @@ server <- function(input, output) {
         matrix <- as.matrix(dtm) 
         words <- sort(rowSums(matrix),decreasing=TRUE) 
         df <- data.frame(word = names(words),freq=words)
-        df <- df[order(df$freq, decreasing = TRUE), ]
+        df <- df[order(df$freq, decreasing = b), ]
         df <- df[input$Words[1]:input$Words[2], ]
         set.seed(1234) # for reproducibility 
-        if(input$Words[1] < 10)
-            siz = 1.0
-        if(input$Words[1] < 2)
-            siz = 1.6
-        if(input$Words[1] > 9 && input$Words[2] - input$Words[1] > 0)
-            siz = 0.6
-        if(input$Words[1] > 6 && input$Words[2] - input$Words[1] > 50)
-            siz = 0.6
-        if(input$Words[1] > 6 && input$Words[2] - input$Words[1] > 100)
-            siz = 0.3
+        if(b == TRUE) {
+            if(input$Words[1] < 10)
+                siz = 1.0
+            if(input$Words[1] < 3)
+                siz = 1.6
+            if(input$Words[1] > 9 && input$Words[2] - input$Words[1] > 0)
+                siz = 0.5
+            if(input$Words[1] > 6 && input$Words[2] - input$Words[1] > 50)
+                siz = 0.5
+            if(input$Words[1] > 6 && input$Words[2] - input$Words[1] > 100)
+                siz = 0.4
+        } else if(b == FALSE) {
+            if(input$Words[1] < 10)
+                siz = 0.4
+            if(input$Words[1] < 3)
+                siz = 0.3
+            if(input$Words[1] > 9 && input$Words[2] - input$Words[1] > 0)
+                siz = 0.3
+            if(input$Words[1] > 6 && input$Words[2] - input$Words[1] > 50)
+                siz = 0.3
+            if(input$Words[1] > 6 && input$Words[2] - input$Words[1] > 100)
+                siz = 0.3
+        }
         
         wordcloud2(data=df, size=siz, color='random-dark', widgetsize=1, minSize = 10)
         
@@ -128,7 +145,7 @@ server <- function(input, output) {
     ranges <- reactiveValues(x = NULL, y = NULL)
     #mapka
     output$mymap <- renderLeaflet({
-        
+        shinyjs::hide("Invert")
         shinyjs::hide("Band")
         shinyjs::hide("Genre")
         shinyjs::hide("Words")
@@ -136,6 +153,7 @@ server <- function(input, output) {
     })
     
     output$mymap2 <- renderLeaflet({
+        shinyjs::hide("Invert")
         shinyjs::show("Band")
         shinyjs::hide("Genre")
         shinyjs::hide("Words")
@@ -194,6 +212,7 @@ server <- function(input, output) {
     })
     #wykres z przyblizaniem
     output$plot2 <- renderPlot({
+        shinyjs::hide("Invert")
         shinyjs::hide("Band")
         shinyjs::hide("Genre")
         shinyjs::hide("Words")
@@ -217,6 +236,7 @@ server <- function(input, output) {
     })
     #wykres z przyblizaniem2
     output$plot2a <- renderPlot({
+        shinyjs::hide("Invert")
         shinyjs::hide("Band")
         shinyjs::show("Genre")
         shinyjs::hide("Words")
@@ -280,7 +300,8 @@ ui <- fluidPage(
            selectInput("Genre","Genre", choices = choices2),
             
       
-            sliderInput("Words", "Words", min=1, max=maxi, value=c(40, 60))
+            sliderInput("Words", "Words", min=1, max=maxi, value=c(40, 60)),
+           checkboxInput("Invert", "Invert", FALSE)
         ),
         
         # Main panel for displaying outputs ----
